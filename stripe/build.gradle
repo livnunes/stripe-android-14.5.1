@@ -1,0 +1,136 @@
+plugins {
+    id 'com.android.library'
+    id 'kotlin-android'
+    id 'kotlin-android-extensions'
+    id 'checkstyle'
+    id 'org.jetbrains.dokka'
+
+    id 'maven'
+    id 'signing'
+    id 'maven-publish'
+
+    // make sure this line comes *after* you apply the Android plugin
+    id 'com.getkeepsafe.dexcount'
+}
+
+assemble.dependsOn('lint')
+check.dependsOn('checkstyle')
+
+configurations {
+    javadocDeps
+    ktlint
+}
+
+dependencies {
+    implementation 'androidx.annotation:annotation:1.1.0'
+    implementation 'androidx.appcompat:appcompat:1.1.0'
+    implementation 'androidx.recyclerview:recyclerview:1.1.0'
+    implementation "androidx.lifecycle:lifecycle-livedata-ktx:$androidLifecycleVersion"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:$androidLifecycleVersion"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-savedstate:$androidLifecycleVersion"
+    implementation 'androidx.localbroadcastmanager:localbroadcastmanager:1.0.0'
+
+    // Api for this import because we use reflection to alter TextInputLayout
+    api 'com.google.android.material:material:1.1.0'
+
+    implementation "com.stripe:stripe-3ds2-android:3.0.2"
+
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlinVersion"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutinesVersion"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlinCoroutinesVersion"
+
+    javadocDeps 'androidx.annotation:annotation:1.1.0'
+    javadocDeps 'androidx.appcompat:appcompat:1.1.0'
+    javadocDeps 'com.google.android.material:material:1.1.0'
+
+    testImplementation 'junit:junit:4.13'
+    testImplementation "org.mockito:mockito-core:3.3.3"
+    testImplementation 'org.robolectric:robolectric:4.3.1'
+    testImplementation 'androidx.test:core:1.2.0'
+    testImplementation 'org.json:json:20200518'
+    testImplementation "com.nhaarman.mockitokotlin2:mockito-kotlin:2.2.0"
+    testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlinVersion"
+    testImplementation "org.jetbrains.kotlin:kotlin-test-annotations-common:$kotlinVersion"
+    testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$kotlinCoroutinesVersion"
+    testImplementation 'com.google.truth:truth:1.0.1'
+
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
+    androidTestImplementation 'androidx.test:rules:1.2.0'
+    androidTestImplementation 'androidx.test:runner:1.2.0'
+    androidTestUtil 'androidx.test:orchestrator:1.2.0'
+
+    ktlint "com.pinterest:ktlint:$ktlintVersion"
+}
+
+android {
+    compileSdkVersion rootProject.ext.compileSdkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    defaultConfig {
+        minSdkVersion 19
+        targetSdkVersion rootProject.ext.compileSdkVersion
+        consumerProguardFiles 'proguard-rules.txt'
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunnerArguments clearPackageData: 'true'
+    }
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            res.srcDirs = ['res']
+            assets.srcDirs = ['assets']
+        }
+        main.kotlin.srcDirs += 'src/main/java'
+        main.java.srcDirs += 'src/main/java'
+
+        test {
+
+        }
+    }
+    testOptions {
+        unitTests {
+            // Note: without this, all Robolectric tests using BuildConfig will fail.
+            includeAndroidResources = true
+        }
+    }
+    productFlavors {
+    }
+
+    lintOptions {
+        enable "Interoperability"
+        lintConfig file("../settings/lint.xml")
+    }
+
+    dokka {
+        outputFormat = 'javadoc'
+        outputDirectory = "${project.rootDir}/docs/"
+    }
+
+    buildFeatures {
+        viewBinding true
+    }
+}
+
+androidExtensions {
+    features = ['parcelize']
+    experimental = true
+}
+
+task ktlint(type: JavaExec, group: "verification") {
+    description = "Check Kotlin code style."
+    main = "com.pinterest.ktlint.Main"
+    classpath = configurations.ktlint
+    args "src/**/*.kt"
+    // to generate report in checkstyle format prepend following args:
+    // "--reporter=plain", "--reporter=checkstyle,output=${buildDir}/ktlint.xml"
+    // see https://github.com/pinterest/ktlint#usage for more
+}
+check.dependsOn ktlint
+
+task ktlintFormat(type: JavaExec, group: "formatting") {
+    description = "Fix Kotlin code style deviations."
+    main = "com.pinterest.ktlint.Main"
+    classpath = configurations.ktlint
+    args "-F", "src/**/*.kt"
+}
+
+apply from: 'deploy.gradle'
